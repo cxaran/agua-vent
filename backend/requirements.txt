@@ -1,0 +1,15 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+gunicorn>=23.0.0
+sqlmodel>=0.0.22
+psycopg2-binary>=2.9.10
+pydantic[email]>=2.10.0
+pydantic-settings>=2.7.0
+fastapi-mail>=1.4.2
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+alembic>=1.14.0
+python-multipart>=0.0.18
+pyjwt>=2.0.0
+redis>=5.2.0
+argon2-cffi>=23.1.0
