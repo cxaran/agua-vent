@@ -102,6 +102,151 @@ def confirm(prompt: str) -> bool:
     return ans in ("y", "yes")
 
 
+def prompt_choice(title: str, options: list[tuple[str, str]]) -> str | None:
+    print()
+    print(title)
+    print("-" * len(title))
+    for index, (key, label) in enumerate(options, start=1):
+        print(f"  {index}. {label}")
+    print("  0. Volver / salir")
+
+    while True:
+        try:
+            ans = input("> ").strip().lower()
+        except EOFError:
+            return None
+
+        if ans in ("0", "q", "quit", "exit", "salir"):
+            return None
+
+        if ans.isdigit():
+            index = int(ans)
+            if 1 <= index <= len(options):
+                return options[index - 1][0]
+
+        for key, label in options:
+            if ans == key or ans == label.lower():
+                return key
+
+        warn("Opcion no valida. Elige un numero de la lista.")
+
+
+def prompt_text(prompt: str, default: str | None = None) -> str | None:
+    suffix = f" [{default}]" if default else ""
+    try:
+        value = input(f"{prompt}{suffix}: ").strip()
+    except EOFError:
+        return None
+    return value or default
+
+
+def interactive_args(command: str, action: str | None) -> argparse.Namespace:
+    args = argparse.Namespace(command=command, action=action, help=False)
+
+    if command == "db" and action == "revision":
+        message = prompt_text("Mensaje para la migracion")
+        if not message:
+            err("La migracion necesita un mensaje.")
+            sys.exit(2)
+        args.message = message
+
+    if command == "prod":
+        env_path = prompt_text("Ruta del archivo .env de produccion")
+        args.env = env_path
+        args.yes = False
+
+    if command == "logs":
+        args.service = prompt_text("Servicio para logs", "backend")
+
+    if command == "prune":
+        args.yes = False
+
+    return args
+
+
+def guided_menu() -> int:
+    print("agua-vent operational CLI")
+    print("Modo guiado. Tambien puedes usar comandos directos como:")
+    print("  python run.py dev up")
+
+    sections = [
+        ("general", "General: ayuda y diagnostico"),
+        ("dev", "Desarrollo: levantar, detener o reconstruir servicios"),
+        ("db", "Base de datos: migraciones de desarrollo"),
+        ("prod", "Produccion: build, migraciones y deploy"),
+        ("monitoring", "Monitoreo: estado, logs y recursos"),
+        ("cleanup", "Limpieza: contenedores y cache sin volumenes"),
+    ]
+
+    actions: dict[str, list[tuple[str, str]]] = {
+        "general": [
+            ("doctor", "Revisar que el entorno este listo"),
+            ("help", "Mostrar ayuda completa"),
+        ],
+        "dev": [
+            ("up", "Levantar servicios de desarrollo con build"),
+            ("down", "Detener servicios de desarrollo"),
+            ("restart", "Reiniciar servicios de desarrollo"),
+            ("rebuild", "Reconstruir sin cache y levantar"),
+        ],
+        "db": [
+            ("revision", "Crear migracion Alembic autogenerada"),
+            ("upgrade", "Aplicar migraciones pendientes"),
+            ("current", "Ver revision actual"),
+            ("history", "Ver historial de migraciones"),
+        ],
+        "prod": [
+            ("build", "Construir imagenes de produccion"),
+            ("migrate", "Aplicar migraciones en produccion"),
+            ("up", "Levantar servicios de produccion"),
+            ("deploy", "Build -> migrate -> up"),
+        ],
+        "monitoring": [
+            ("status", "Ver estado de servicios"),
+            ("logs", "Seguir logs de un servicio"),
+            ("stats", "Ver uso de recursos de contenedores"),
+        ],
+        "cleanup": [
+            ("clean", "Limpiar contenedores detenidos del entorno dev"),
+            ("prune", "Ejecutar docker system prune sin volumenes"),
+        ],
+    }
+
+    while True:
+        section = prompt_choice("Que quieres hacer?", sections)
+        if section is None:
+            ok("Hasta luego.")
+            return 0
+
+        action = prompt_choice("Elige una accion", actions[section])
+        if action is None:
+            continue
+
+        if section == "general":
+            command, subaction = action, None
+        elif section == "monitoring":
+            command, subaction = action, None
+        elif section == "cleanup":
+            command, subaction = action, None
+        else:
+            command, subaction = section, action
+
+        args = interactive_args(command, subaction)
+        print()
+        info("Ejecutando comando equivalente:")
+        if subaction:
+            print(f"  python run.py {command} {subaction}")
+        else:
+            print(f"  python run.py {command}")
+        print()
+
+        fn = DISPATCH.get((command, subaction))
+        if fn is None:
+            err("No se encontro la accion seleccionada.")
+            return 2
+        return fn(args)
+
+
 # --- doctor ----------------------------------------------------------------
 
 def cmd_doctor(_args: argparse.Namespace) -> int:
@@ -305,6 +450,7 @@ agua-vent operational CLI
 
 Usage:
   python run.py <command> [args]
+  python run.py                Start guided mode
 
 General:
   help                        Show this help
@@ -339,6 +485,7 @@ Cleanup:
   prune                       docker system prune -f (volumes preserved)
 
 Examples:
+  python run.py
   python run.py doctor
   python run.py dev up
   python run.py db revision "add customer credit limit"
@@ -348,6 +495,7 @@ Examples:
 
 Production must always receive its .env explicitly via --env.
 The local ./.env is for development only.
+When no command is provided, run.py opens a guided menu by category.
 """
 
 
@@ -427,14 +575,22 @@ DISPATCH: dict[tuple[str, str | None], CommandFn] = {
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if not raw_argv:
+        return guided_menu()
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
 
     show_help: bool = bool(getattr(args, "help", False))
     command: str | None = getattr(args, "command", None)
 
-    if show_help or not command or command == "help":
+    if show_help or command == "help":
         return cmd_help(args)
+
+    if command is None:
+        cmd_help(args)
+        return 2
 
     action: str | None = getattr(args, "action", None)
     fn = DISPATCH.get((command, action))

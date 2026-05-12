@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import Any
+
 from .security_control import SecurityControl
 
 class SecurityGroup(Enum):
@@ -25,5 +27,5 @@ class SecurityGroup(Enum):
         return self._control.check
 
     @property
-    def requiere(self):
+    def requiere(self) -> Any:
         return self._control.requiere

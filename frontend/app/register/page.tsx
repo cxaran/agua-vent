@@ -1,8 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Droplets, Mail, Lock, User, Key, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react"
+
+function getApiError(data: unknown, fallback: string) {
+  if (typeof data !== "object" || data === null) return fallback
+
+  const detail = (data as { detail?: unknown }).detail
+  if (typeof detail === "string") return detail
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item !== "object" || item === null) return null
+        const error = item as { loc?: unknown[]; msg?: unknown }
+        const field = Array.isArray(error.loc) ? error.loc.at(-1) : null
+        return `${field ? `${field}: ` : ""}${String(error.msg || fallback)}`
+      })
+      .filter(Boolean)
+      .join(". ")
+  }
+
+  return fallback
+}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -23,6 +44,21 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tokenParam = params.get("token")
+    const emailParam = params.get("email")
+
+    if (emailParam) {
+      setEmail(emailParam)
+    }
+
+    if (!tokenParam) return
+
+    setToken(tokenParam)
+    setStep("confirm")
+  }, [])
+
   const handleRequestToken = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -37,7 +73,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.detail || "Error al solicitar token")
+        throw new Error(getApiError(data, "Error al solicitar token"))
       }
 
       setSuccess("Token de verificacion enviado. Revisa tu email o usa el token de desarrollo.")
@@ -61,7 +97,7 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const res = await fetch("/api/v1/auth/register/confirm", {
+      const res = await fetch("/api/v1/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -76,7 +112,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.detail || "Error al confirmar registro")
+        throw new Error(getApiError(data, "Error al confirmar registro"))
       }
 
       router.push("/login?registered=true")
@@ -163,6 +199,21 @@ export default function RegisterPage() {
               </form>
             ) : (
               <form onSubmit={handleConfirm} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tu@email.com"
+                      required
+                      className="w-full h-12 pl-10 pr-4 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2">Token de Verificacion</label>
                   <div className="relative">

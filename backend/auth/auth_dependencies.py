@@ -1,86 +1,114 @@
-from datetime import datetime
-from typing import Annotated, Optional, cast
-from fastapi import Depends, HTTPException, Cookie, status
+from typing import Annotated, cast
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import select
 
 from backend.core.database import SessionDep
-from backend.core.redis import redis_client
-from backend.models.user import User, UserRole, RoleAccess
-from backend.schemas.user import UserBase
+from backend.core.time import utc_now
+from backend.models.subscription import Subscription, UserSubscription
+from backend.models.user import RoleAccess, User, UserRole
+from backend.schemas.user import SubscriptionSummary, UserBase
 
 from .security import decode_jwt
 
-USER_SESSION_KEY: str = "user_session"
-TTL: int = 45
-
-
-# Esquema de autenticación OAuth2
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/token",
     auto_error=False,
 )
 
 
+def _unauthorized_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar el usuario",
+    )
+
+
 def get_token(
-    session_token: Optional[str] = Cookie(None),
-    bearer_token: Optional[str] = Depends(oauth2_scheme),
-) -> Optional[str]:
-    """
-    Obtiene el token de acceso desde:
-    1. Header Authorization: Bearer <token>
-    2. Cookie "session_token"
-    """
-    if bearer_token:
-        return bearer_token
-    return session_token
+    session_token: str | None = Cookie(None),
+    bearer_token: str | None = Depends(oauth2_scheme),
+) -> str | None:
+    return bearer_token or session_token
 
 
-def get_base_user(
+def _load_active_subscription(
+    session: SessionDep,
+    user: User,
+) -> SubscriptionSummary | None:
+    stmt = (
+        select(
+            Subscription.id,
+            Subscription.user_id,
+            Subscription.cutoff_date,
+            UserSubscription.role_id,
+        )
+        .join(UserSubscription, UserSubscription.subscription_id == Subscription.id)
+        .where(
+            UserSubscription.user_id == user.id,
+            UserSubscription.is_active == True,  # noqa: E712
+            Subscription.is_active == True,  # noqa: E712
+        )
+        .order_by(UserSubscription.created_at.desc())
+        .limit(1)
+    )
+    row = session.exec(stmt).first()
+    if row is None:
+        return None
+
+    sub_id, owner_id, cutoff_date, role_id = row
+    permissions = cast(
+        "list[str]",
+        session.exec(
+            select(RoleAccess.access).where(
+                RoleAccess.role_id == role_id,
+                RoleAccess.is_active == True,  # noqa: E712
+            )
+        ).all(),
+    )
+    days_to_cutoff = (
+        (cutoff_date - utc_now().date()).days if cutoff_date is not None else None
+    )
+    return SubscriptionSummary(
+        id=sub_id,
+        is_owner=owner_id == user.id,
+        days_to_cutoff=days_to_cutoff,
+        permissions=set(permissions),
+    )
+
+
+def build_current_user(
     session: SessionDep,
     user: User,
 ) -> UserBase:
-    """
-    Devuelve un objeto UserBase con los permisos del usuario.
-    """
     stmt = (
         select(RoleAccess.access)
         .join_from(RoleAccess, UserRole, RoleAccess.role_id == UserRole.role_id)
         .where(UserRole.user_id == user.id)
     )
-    rows = cast("list[str]", session.exec(stmt).all())
+    permissions = cast("list[str]", session.exec(stmt).all())
     base_user = UserBase.model_validate(user, from_attributes=True)
-    base_user.permissions = set(rows)
+    base_user.permissions = set(permissions)
+    base_user.subscription = _load_active_subscription(session, user)
     return base_user
 
 
 def get_current_user(
     session: SessionDep,
-    token: str = Depends(get_token),
-) -> Optional[UserBase]:
-    """Obtiene el usuario actual si existe un token de acceso."""
+    token: str | None = Depends(get_token),
+) -> UserBase:
+    if not token:
+        raise _unauthorized_error()
+
     try:
         data = decode_jwt(token)
-        cache_key = f"{USER_SESSION_KEY}:{data.sub}"
-        cached_user = cast("bytes | None", redis_client.get(cache_key))
-        if cached_user:
-            return UserBase.model_validate_json(cached_user)
-        user = session.get(User, data.sub)
-        if not user or not user.is_active or user.token != data.jti:
-            raise ValueError("invalid user")
-        user.last_login = datetime.now()
-        session.add(user)
-        session.commit()
-        base_user = get_base_user(session, user)
-        redis_client.setex(cache_key, TTL, base_user.model_dump_json())
-        return base_user
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No se pudo validar el usuario",
-        )
+        raise _unauthorized_error()
+
+    user = session.get(User, data.sub)
+    if not user or not user.is_active or user.token != data.jti:
+        raise _unauthorized_error()
+
+    return build_current_user(session, user)
 
 
-# Dependencias que lanzan excepciones si se encuentra un error en la validación
 CurrentUser = Annotated[UserBase, Depends(get_current_user)]
-"""Usuario actual autenticado."""

@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     """Algoritmo de cifrado para tokens JWT."""
 
-    secret_key: str = "mysecretkey"
+    secret_key: SecretStr
     """Clave secreta para firmar y verificar tokens JWT."""
 
     access_token_expire: int = 24
@@ -153,6 +153,9 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     """Puerto del servidor SMTP."""
 
+    smtp_use_credentials: bool = True
+    """Indica si el servidor SMTP requiere usuario y contraseña."""
+
     @computed_field
     @property
     def mail_config(self) -> ConnectionConfig:
@@ -171,9 +174,9 @@ class Settings(BaseSettings):
             MAIL_PORT=self.smtp_port,
             MAIL_STARTTLS=self.smtp_tls,
             MAIL_SSL_TLS=self.smtp_ssl,
-            USE_CREDENTIALS=True,
+            USE_CREDENTIALS=self.smtp_use_credentials,
             VALIDATE_CERTS=True,
-            TEMPLATE_FOLDER=Path("backend/app/templates/emails"),
+            TEMPLATE_FOLDER=Path("backend/templates/emails"),
         )
 
     # --------------------
@@ -191,7 +194,7 @@ def get_settings() -> Settings:
     """
     Obtiene una instancia única y en caché de :class:`Settings`.
     """
-    return Settings()
+    return Settings()  # pyright: ignore[reportCallIssue]
 
 
 # Instancia global de settings

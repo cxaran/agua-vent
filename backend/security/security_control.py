@@ -1,4 +1,6 @@
-from typing import Annotated
+import uuid
+from typing import Annotated, Any
+
 from fastapi import Depends, HTTPException, status
 
 from backend.auth.auth_dependencies import CurrentUser
@@ -18,26 +20,52 @@ class SecurityControl:
         self.access = access
         self.description = description
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"SecurityControl({self.access})"
 
     def check(
         self,
         current_user: CurrentUser,
     ) -> bool:
-        return current_user.access_control(WILDCARD_ACCESS) or current_user.access_control(self.access)
+        return current_user.access_control(self.access)
+
+    def check_subscription(
+        self,
+        current_user: CurrentUser,
+    ) -> bool:
+        return current_user.subscription_access_control(self.access)
 
     def _requiere(
         self,
         current_user: CurrentUser,
-    ):
+    ) -> bool:
         if not self.check(current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="No disponible"
             )
         return True
 
+    def _subscription_id(
+        self,
+        current_user: CurrentUser,
+    ) -> uuid.UUID:
+        if current_user.subscription is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes una suscripción activa",
+            )
+        if not self.check_subscription(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No disponible",
+            )
+        return current_user.subscription.id
+
     @property
-    def requiere(self):
+    def requiere(self) -> Any:
         return Annotated[bool, Depends(self._requiere)]
+
+    @property
+    def subscription_id(self) -> Any:
+        return Annotated[uuid.UUID, Depends(self._subscription_id)]
     

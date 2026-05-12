@@ -29,10 +29,53 @@ El navegador no llama directo a FastAPI. Las llamadas del frontend usan rutas re
 fetch("/api/v1/auth/login")
 ```
 
+## run.py
+
+CLI de operaciones que envuelve Docker Compose, Alembic y deployments con valores seguros por defecto.
+
+```bash
+python run.py <command> [args]
+```
+
+| Comando | Descripcion |
+|---|---|
+| `help` | Mostrar ayuda completa |
+| `doctor` | Verificar que el entorno esta listo |
+| `dev up` | Iniciar servicios de desarrollo (hot reload) |
+| `dev down` | Detener servicios de desarrollo |
+| `dev restart` | Reiniciar servicios de desarrollo |
+| `dev rebuild` | Reconstruir imagenes sin cache e iniciar |
+| `db revision "mensaje"` | Crear migracion Alembic (autogenerate) |
+| `db upgrade` | Aplicar migraciones en desarrollo |
+| `db current` | Mostrar revision actual de Alembic |
+| `db history` | Mostrar historial de Alembic |
+| `prod build --env PATH` | Construir imagenes de produccion |
+| `prod migrate --env PATH` | Aplicar migraciones en produccion |
+| `prod up --env PATH` | Iniciar servicios de produccion |
+| `prod deploy --env PATH` | Build -> migrate -> up (requiere `--env`) |
+| `status` | Mostrar estado de servicios |
+| `logs [service]` | Ver logs (default: backend) |
+| `stats` | Uso de recursos de contenedores |
+| `clean` | Eliminar contenedores detenidos |
+| `prune` | `docker system prune -f` (volumes no se borran) |
+
+Ejemplos:
+
+```bash
+python run.py doctor
+python run.py dev up
+python run.py db revision "add customer credit limit"
+python run.py db upgrade
+python run.py prod deploy --env /opt/agua-vent/.env
+python run.py logs backend
+```
+
+Los comandos `prod *` requieren `--env PATH` apuntando al archivo `.env` de produccion.
+
 ## Desarrollo
 
 ```bash
-docker compose -f compose.yaml -f compose.dev.yaml up --build
+python run.py dev up
 ```
 
 Abrir:
@@ -51,32 +94,30 @@ DOMAIN_AUTH_URL=http://localhost:3000
 ## Produccion
 
 ```bash
-docker compose build backend frontend
-docker compose up -d
+python run.py prod deploy --env /opt/agua-vent/.env
 ```
 
 Solo `nginx` publica puerto al host. `backend`, `frontend`, `postgres` y `redis` quedan en la red interna de Docker.
 
 ## Migraciones
 
-Crear migracion en desarrollo:
+Crear migracion:
 
 ```bash
-docker compose -f compose.yaml -f compose.dev.yaml run --rm backend alembic -c backend/alembic.ini revision --autogenerate -m "mensaje"
+python run.py db revision "mensaje"
 ```
 
-Aplicar migraciones en produccion:
+Aplicar migraciones:
 
 ```bash
-docker compose build backend
-docker compose --profile migrate run --rm migrate
-docker compose up -d
+python run.py db upgrade
 ```
 
 ## Documentacion
 
 | Documento | Contenido |
 |---|---|
+| `run.py` | CLI de operaciones (dev, prod, db, logs, etc.) |
 | `docs/docker.md` | Docker, nginx, dev, prod y migraciones |
 | `docs/arquitectura.md` | Estructura general del proyecto |
 | `docs/auth-flow.md` | Flujo de autenticacion |

@@ -8,8 +8,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from backend.core.settings import settings
-from backend.models import Base
+from backend.core.settings import settings  # noqa: E402
+from backend.models import Base  # noqa: E402
 
 target_metadata = Base.metadata
 

@@ -1,4 +1,7 @@
-from pydantic import BaseModel, EmailStr, SecretStr
+from pydantic import BaseModel, EmailStr, Field, SecretStr, field_validator, model_validator
+from typing_extensions import Self
+
+from backend.schemas.user import validate_password
 
 
 class LoginRequest(BaseModel):
@@ -10,37 +13,29 @@ class RegisterRequest(BaseModel):
     email: EmailStr
 
 
-class RegisterConfirm(BaseModel):
-    name: str
-    last_name: str
-    email: EmailStr
-    token: str
-    password: SecretStr
-    confirm_password: SecretStr
-
-
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
-    token: str
-    password: SecretStr
-    confirm_password: SecretStr
+    token: str = Field(..., min_length=10)
+    password: SecretStr = Field(..., min_length=8, max_length=128)
+    confirm_password: SecretStr = Field(..., min_length=8, max_length=128)
 
+    @field_validator("password")
+    def password_validator(cls, value: SecretStr) -> SecretStr:
+        return validate_password(value)
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> Self:
+        if self.password != self.confirm_password:
+            raise ValueError("Las contraseñas no coinciden")
+        return self
 
 
 class MessageResponse(BaseModel):
     message: str
-
-
-class AccessToken(BaseModel):
-    access_token: str
 
 
 class TokenPayload(BaseModel):
@@ -48,11 +43,3 @@ class TokenPayload(BaseModel):
     exp: int
     iat: int
     jti: str
-
-
-class UserInfo(BaseModel):
-    id: str
-    name: str
-    last_name: str
-    email: str
-    permissions: list[str]

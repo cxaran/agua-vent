@@ -1,38 +1,44 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Droplets, Eye, EyeOff, Lock, Mail } from "lucide-react"
 
-export default function LoginPage() {
+import { useAuth } from "@/components/auth/auth-provider"
+import { ApiError } from "@/lib/api"
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { login, status } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
+  const nextUrl = searchParams.get("next") || "/panel"
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace(nextUrl)
+    }
+  }, [status, router, nextUrl])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
-
     try {
-      const res = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.detail || "Credenciales invalidas")
-      }
-
-      router.push("/")
+      await login(email, password)
+      router.replace(nextUrl)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al iniciar sesion")
+      if (err instanceof ApiError) {
+        setError(err.detail || "Credenciales inválidas")
+      } else {
+        setError("Error al iniciar sesión")
+      }
     } finally {
       setLoading(false)
     }
@@ -40,7 +46,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/20 via-primary/10 to-background items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="flex items-center justify-center mb-8">
@@ -59,24 +64,22 @@ export default function LoginPage() {
             </div>
             <div className="bg-card/50 rounded-lg p-4 border border-border">
               <p className="font-semibold text-foreground">Rutas y Entregas</p>
-              <p className="text-muted-foreground text-xs mt-1">Gestion de repartidores</p>
+              <p className="text-muted-foreground text-xs mt-1">Gestión de repartidores</p>
             </div>
             <div className="bg-card/50 rounded-lg p-4 border border-border">
-              <p className="font-semibold text-foreground">Clientes y Creditos</p>
+              <p className="font-semibold text-foreground">Clientes y Créditos</p>
               <p className="text-muted-foreground text-xs mt-1">CRM integrado</p>
             </div>
             <div className="bg-card/50 rounded-lg p-4 border border-border">
               <p className="font-semibold text-foreground">Multi-Sucursal</p>
-              <p className="text-muted-foreground text-xs mt-1">Gestion centralizada</p>
+              <p className="text-muted-foreground text-xs mt-1">Gestión centralizada</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-8">
             <Droplets className="h-10 w-10 text-primary" />
             <span className="ml-3 text-2xl font-bold">AguaVent</span>
@@ -84,7 +87,7 @@ export default function LoginPage() {
 
           <div className="bg-card border border-border rounded-xl p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold">Iniciar Sesion</h2>
+              <h2 className="text-2xl font-bold">Iniciar Sesión</h2>
               <p className="text-muted-foreground mt-2">Ingresa tus credenciales para continuar</p>
             </div>
 
@@ -111,14 +114,14 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Contrasena</label>
+                <label className="block text-sm font-medium mb-2">Contraseña</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Tu contrasena"
+                    placeholder="Tu contraseña"
                     required
                     className="w-full h-12 pl-10 pr-12 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
@@ -137,9 +140,9 @@ export default function LoginPage() {
                   <input type="checkbox" className="rounded border-border" />
                   <span className="text-muted-foreground">Recordarme</span>
                 </label>
-                <button type="button" className="text-primary hover:underline">
-                  Olvide mi contrasena
-                </button>
+                <Link href="/forgot-password" className="text-primary hover:underline">
+                  Olvidé mi contraseña
+                </Link>
               </div>
 
               <button
@@ -147,23 +150,31 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full h-12 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {loading ? "Iniciando sesion..." : "Iniciar Sesion"}
+                {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
               </button>
 
               <p className="text-center text-sm text-muted-foreground">
-                No tienes cuenta?{" "}
-                <a href="/register" className="text-primary hover:underline">
-                  Registrate aqui
-                </a>
+                ¿No tienes cuenta?{" "}
+                <Link href="/register" className="text-primary hover:underline">
+                  Regístrate aquí
+                </Link>
               </p>
             </form>
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            AguaVent v1.0.0 - Sistema Local
+            AguaVent v1.0.0
           </p>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

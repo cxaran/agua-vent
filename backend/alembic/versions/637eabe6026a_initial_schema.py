@@ -32,8 +32,6 @@ def upgrade() -> None:
                   comment='Token de version del usuario. Cambia al modificar contrasena, email o al forzar cierre de sesiones activas.'),
         sa.Column('locked_until', sa.DateTime(), nullable=True,
                   comment='Fecha hasta la cual la cuenta esta bloqueada por intentos fallidos de login.'),
-        sa.Column('last_login', sa.DateTime(), nullable=True,
-                  comment='Fecha y hora del ultimo inicio de sesion exitoso.'),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now(),
                   comment='Fecha y hora de creacion del registro.'),
         sa.Column('updated_at', sa.DateTime(), nullable=True,

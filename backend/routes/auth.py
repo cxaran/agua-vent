@@ -1,134 +1,134 @@
 from fastapi import APIRouter, HTTPException, Response, status
 
-from backend.core.database import SessionDep
+from backend.auth.account_lock import unlock_user_by_token
+from backend.auth.auth import authenticate, delete_session_cookie, set_session_cookie
 from backend.auth.auth_dependencies import CurrentUser
-from backend.schemas.auth import (
-    LoginRequest,
-    RegisterRequest,
-    RegisterConfirm,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,
-    TokenResponse,
-    MessageResponse,
-    UserInfo,
+from backend.auth.forgot_password import (
+    reset_password as reset_user_password,
+    send_password_reset_token,
 )
+from backend.auth.register import create_user, send_registration_token
+from backend.core.database import SessionDep
+from backend.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    MessageResponse,
+    RegisterRequest,
+    ResetPasswordRequest,
+)
+from backend.schemas.user import UserBase, UserCreate
 
-from backend.auth import register as register_mod
-from backend.auth import auth as auth_mod
-from backend.auth import forgotpassword as forgot_mod
-from backend.auth import locked as locked_mod
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=MessageResponse)
 async def login(
+    request: LoginRequest,
     response: Response,
     session: SessionDep,
-    body: LoginRequest,
-):
-    access_token = await auth_mod.authenticate(session, body.email, body.password)
-    if not access_token:
+) -> MessageResponse:
+    token = await authenticate(session, request.email, request.password)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales invalidas",
+            detail="Credenciales incorrectas",
         )
-    auth_mod.set_session_cookie(response, access_token)
-    return TokenResponse(access_token=access_token)
+
+    set_session_cookie(response, token)
+
+    return MessageResponse(message="Sesión iniciada")
+
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(response: Response) -> MessageResponse:
+    delete_session_cookie(response)
+
+    return MessageResponse(message="Sesión cerrada")
+
+
+@router.get("/me", response_model=UserBase)
+def get_me(current_user: CurrentUser) -> UserBase:
+    return current_user
 
 
 @router.post("/register/request", response_model=MessageResponse)
-async def register_request(
+async def request_registration(
+    request: RegisterRequest,
     session: SessionDep,
-    body: RegisterRequest,
-):
-    token = await register_mod.generate_email_token(session, body.email)
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El email ya esta registrado o no es valido",
-        )
-    return MessageResponse(message="Token enviado al correo electronico")
+) -> MessageResponse:
+    await send_registration_token(session, request.email)
 
-
-@router.post("/register/confirm", response_model=MessageResponse)
-def register_confirm(
-    session: SessionDep,
-    body: RegisterConfirm,
-):
-    from backend.schemas.user import UserCreate
-
-    user_data = UserCreate(
-        name=body.name,
-        last_name=body.last_name,
-        email=body.email,
-        token=body.token,
-        password=body.password,
-        confirm_password=body.confirm_password,
+    return MessageResponse(
+        message="Si el correo no está registrado, recibirás un enlace de registro",
     )
-    user = register_mod.create_user(session, user_data)
+
+
+@router.post(
+    "/register",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def register(
+    user_data: UserCreate,
+    session: SessionDep,
+) -> MessageResponse:
+    user = create_user(session, user_data)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token invalido o expirado, o email no coincide",
+            detail="Token de registro inválido o expirado",
         )
+
     return MessageResponse(message="Usuario registrado exitosamente")
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
 async def forgot_password(
+    request: ForgotPasswordRequest,
     session: SessionDep,
-    body: ForgotPasswordRequest,
-):
-    token = await forgot_mod.generate_email_token(session, body.email)
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Email no encontrado o cuenta inactiva",
-        )
-    return MessageResponse(message="Token de recuperacion enviado al correo electronico")
+) -> MessageResponse:
+    await send_password_reset_token(session, request.email)
+
+    return MessageResponse(
+        message="Si el correo está registrado, recibirás un enlace de recuperación",
+    )
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-def reset_password(
+def reset_password_endpoint(
+    request: ResetPasswordRequest,
     session: SessionDep,
-    body: ResetPasswordRequest,
-):
-    user = forgot_mod.reset_password(session, body.email, body.token, body.password)
+) -> MessageResponse:
+    user = reset_user_password(
+        session,
+        request.email,
+        request.token,
+        request.password,
+    )
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token invalido, expirado o email no coincide",
+            detail="Token de recuperación inválido o expirado",
         )
-    return MessageResponse(message="Contrasena restablecida exitosamente")
+
+    return MessageResponse(message="Contraseña actualizada exitosamente")
 
 
 @router.get("/unlock-account/{token}", response_model=MessageResponse)
 def unlock_account(
-    session: SessionDep,
     token: str,
-):
-    user = locked_mod.validate_locked_token(session, token)
+    session: SessionDep,
+) -> MessageResponse:
+    user = unlock_user_by_token(session, token)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token invalido o expirado",
+            detail="Token de desbloqueo inválido o expirado",
         )
+
     return MessageResponse(message="Cuenta desbloqueada exitosamente")
-
-
-@router.post("/logout", response_model=MessageResponse)
-def logout(response: Response):
-    auth_mod.delete_session_cookie(response)
-    return MessageResponse(message="Sesion cerrada exitosamente")
-
-
-@router.get("/me", response_model=UserInfo)
-def me(current_user: CurrentUser):
-    return UserInfo(
-        id=str(current_user.id),
-        name=current_user.name,
-        last_name=current_user.last_name,
-        email=current_user.email,
-        permissions=list(current_user.permissions),
-    )

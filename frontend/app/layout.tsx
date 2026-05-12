@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { Toaster } from "sonner"
+import { AuthProvider } from "@/components/auth/auth-provider"
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -36,7 +38,8 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark bg-background">
       <body className="font-sans antialiased min-h-screen">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
+        <Toaster position="top-right" richColors theme="dark" />
       </body>
     </html>
   )

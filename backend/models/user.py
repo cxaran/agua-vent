@@ -1,7 +1,5 @@
-# backend/models/user.py
-
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from datetime import datetime
 from sqlalchemy import (
     String,
@@ -16,6 +14,10 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .subscription import Subscription, UserSubscription
+
 
 class User(Base):
     """Modelo de usuario."""
@@ -44,11 +46,6 @@ class User(Base):
         nullable=True,
         comment="Fecha hasta la cual la cuenta está bloqueada por intentos fallidos de login.",
     )
-    last_login: Mapped[Optional[datetime]] = mapped_column(
-        DateTime,
-        nullable=True,
-        comment="Fecha y hora del último inicio de sesión exitoso.",
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
@@ -69,6 +66,16 @@ class User(Base):
 
     roles: Mapped[list["UserRole"]] = relationship(
         back_populates="user", foreign_keys="[UserRole.user_id]"
+    )
+
+    # Suscripciones
+    owned_subscription: Mapped[Optional["Subscription"]] = relationship(
+        back_populates="owner", foreign_keys="[Subscription.user_id]"
+    )
+    user_subscriptions: Mapped[list["UserSubscription"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="[UserSubscription.user_id]",
     )
 
 class Role(Base):

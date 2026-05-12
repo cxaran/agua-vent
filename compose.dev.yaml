@@ -6,8 +6,24 @@ services:
       context: ./backend
       target: dev
     image: agua-vent-backend:dev
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      SMTP_SSL: "false"
+      SMTP_USE_CREDENTIALS: "false"
+      EMAILS_FROM_EMAIL: dev@example.com
+      EMAILS_FROM_NAME: Agua Vent Dev
     volumes:
       - ./backend:/app/backend
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "${MAILPIT_WEB_PORT:-8025}:8025"
+    expose:
+      - "1025"
+    restart: unless-stopped
 
   frontend:
     build:

@@ -1,232 +1,137 @@
+import Link from "next/link"
 import {
-  DollarSign,
-  ShoppingCart,
-  Package,
-  Users,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
   Droplets,
-  Clock,
-  AlertTriangle,
+  LogIn,
+  ShoppingCart,
+  Users,
+  Truck,
+  BarChart3,
+  Building2,
+  ArrowRight,
 } from "lucide-react"
-import POSLayout from "@/components/pos/pos-layout"
 
-// Mock data for dashboard
-const stats = [
+import { PublicNavbar } from "@/components/public/navbar"
+import { PublicFooter } from "@/components/public/footer"
+
+const FEATURES = [
   {
-    label: "Ventas Hoy",
-    value: "$12,450",
-    change: "+12.5%",
-    trend: "up",
-    icon: DollarSign,
-    color: "text-chart-1",
-  },
-  {
-    label: "Transacciones",
-    value: "48",
-    change: "+8",
-    trend: "up",
     icon: ShoppingCart,
-    color: "text-chart-2",
+    title: "Punto de venta",
+    description: "Cobra rápido con tickets profesionales y control de caja.",
   },
   {
-    label: "Garrafones Vendidos",
-    value: "156",
-    change: "-3",
-    trend: "down",
     icon: Droplets,
-    color: "text-primary",
+    title: "Control de garrafones",
+    description: "Inventario circular con préstamos, devoluciones y mermas.",
   },
   {
-    label: "Clientes Atendidos",
-    value: "32",
-    change: "+5",
-    trend: "up",
+    icon: Truck,
+    title: "Rutas y entregas",
+    description: "Asigna repartidores, mide entregas y cobra a domicilio.",
+  },
+  {
     icon: Users,
-    color: "text-chart-3",
+    title: "Clientes y créditos",
+    description: "CRM con saldos, historial y control de cuentas por cobrar.",
+  },
+  {
+    icon: BarChart3,
+    title: "Reportes",
+    description: "KPIs de ventas, productos top y rendimiento por sucursal.",
+  },
+  {
+    icon: Building2,
+    title: "Multi-sucursal",
+    description: "Administra varias sucursales y usuarios desde un solo panel.",
   },
 ]
 
-const recentSales = [
-  { id: "V-001", customer: "Maria Garcia", items: "5 garrafones", total: "$150", time: "Hace 5 min" },
-  { id: "V-002", customer: "Juan Lopez", items: "3 garrafones + rellenado", total: "$95", time: "Hace 12 min" },
-  { id: "V-003", customer: "Ana Martinez", items: "10 garrafones", total: "$300", time: "Hace 25 min" },
-  { id: "V-004", customer: "Carlos Ruiz", items: "2 garrafones", total: "$60", time: "Hace 38 min" },
-  { id: "V-005", customer: "Sofia Hernandez", items: "8 garrafones", total: "$240", time: "Hace 45 min" },
-]
-
-const lowStock = [
-  { product: "Garrafon 20L Nuevo", stock: 5, min: 20 },
-  { product: "Tapa Azul Estandar", stock: 12, min: 50 },
-  { product: "Etiqueta Personalizada", stock: 8, min: 100 },
-]
-
-const pendingDeliveries = [
-  { route: "Ruta Norte", driver: "Pedro Sanchez", orders: 12, status: "En camino" },
-  { route: "Ruta Centro", driver: "Miguel Torres", orders: 8, status: "Pendiente" },
-  { route: "Ruta Sur", driver: "Luis Ramirez", orders: 15, status: "En camino" },
-]
-
-export default function DashboardPage() {
+export default function HomePage() {
   return (
-    <POSLayout>
-      <div className="space-y-6">
-        {/* Page Title */}
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen de operaciones del dia</p>
-        </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      <PublicNavbar />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="bg-card border border-border rounded-lg p-5"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">{stat.label}</span>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold">{stat.value}</span>
-              </div>
-              <div className="mt-1 flex items-center gap-1 text-sm">
-                {stat.trend === "up" ? (
-                  <>
-                    <ArrowUpRight className="h-4 w-4 text-success" />
-                    <span className="text-success">{stat.change}</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDownRight className="h-4 w-4 text-destructive" />
-                    <span className="text-destructive">{stat.change}</span>
-                  </>
-                )}
-                <span className="text-muted-foreground">vs ayer</span>
-              </div>
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="mx-auto max-w-5xl px-6 pt-16 sm:pt-24 pb-12">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground mb-6">
+              <Droplets className="h-3.5 w-3.5 text-primary" />
+              Punto de venta especializado
             </div>
-          ))}
-        </div>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              Vende, controla y entrega agua sin complicaciones.
+            </h1>
+            <p className="mt-5 text-lg text-muted-foreground">
+              AguaVent es el sistema integral para purificadoras: ventas, garrafones,
+              rutas, clientes y reportes en un solo panel pensado para el día a día.
+            </p>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Sales */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-lg">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold">Ventas Recientes</h2>
-              <button className="text-sm text-primary hover:underline">Ver todas</button>
-            </div>
-            <div className="divide-y divide-border">
-              {recentSales.map((sale) => (
-                <div key={sale.id} className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <ShoppingCart className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{sale.customer}</p>
-                      <p className="text-sm text-muted-foreground">{sale.items}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{sale.total}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {sale.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Low Stock Alert */}
-            <div className="bg-card border border-border rounded-lg">
-              <div className="p-4 border-b border-border flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-warning" />
-                <h2 className="font-semibold">Stock Bajo</h2>
-              </div>
-              <div className="divide-y divide-border">
-                {lowStock.map((item) => (
-                  <div key={item.product} className="p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{item.product}</span>
-                      <span className="text-sm text-destructive font-semibold">
-                        {item.stock}/{item.min}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-destructive rounded-full"
-                        style={{ width: `${(item.stock / item.min) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Pending Deliveries */}
-            <div className="bg-card border border-border rounded-lg">
-              <div className="p-4 border-b border-border">
-                <h2 className="font-semibold">Entregas Pendientes</h2>
-              </div>
-              <div className="divide-y divide-border">
-                {pendingDeliveries.map((delivery) => (
-                  <div key={delivery.route} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium">{delivery.route}</p>
-                        <p className="text-sm text-muted-foreground">{delivery.driver}</p>
-                      </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          delivery.status === "En camino"
-                            ? "bg-success/20 text-success"
-                            : "bg-warning/20 text-warning"
-                        }`}
-                      >
-                        {delivery.status}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {delivery.orders} pedidos
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-card border border-border rounded-lg p-4">
-          <h2 className="font-semibold mb-4">Acciones Rapidas</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {[
-              { label: "Nueva Venta", icon: ShoppingCart, href: "/ventas" },
-              { label: "Registrar Pago", icon: DollarSign, href: "/caja" },
-              { label: "Entrada Inventario", icon: Package, href: "/inventario" },
-              { label: "Nuevo Cliente", icon: Users, href: "/clientes" },
-              { label: "Nueva Ruta", icon: TrendingUp, href: "/rutas" },
-              { label: "Ver Reportes", icon: TrendingDown, href: "/reportes" },
-            ].map((action) => (
-              <button
-                key={action.label}
-                className="flex flex-col items-center gap-2 p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/register"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                <action.icon className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium text-center">{action.label}</span>
-              </button>
+                Crear cuenta
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-border px-5 text-sm font-medium hover:bg-muted"
+              >
+                <LogIn className="h-4 w-4" />
+                Iniciar sesión
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="mx-auto max-w-6xl px-6 py-16 border-t border-border">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold">Todo lo que tu purificadora necesita</h2>
+            <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
+              Un sistema diseñado específicamente para el negocio del agua, no un
+              POS genérico adaptado.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-xl border border-border bg-card p-6 hover:border-primary/40 transition-colors"
+              >
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                  <feature.icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-semibold mb-1">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground">{feature.description}</p>
+              </div>
             ))}
           </div>
-        </div>
-      </div>
-    </POSLayout>
+        </section>
+
+        {/* CTA */}
+        <section className="mx-auto max-w-4xl px-6 py-16">
+          <div className="rounded-2xl border border-border bg-card p-10 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold">
+              Empieza a operar en minutos
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              Crea tu cuenta y prueba el sistema. Sin instalaciones complicadas.
+            </p>
+            <Link
+              href="/register"
+              className="mt-6 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Crear cuenta gratis
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      <PublicFooter />
+    </div>
   )
 }

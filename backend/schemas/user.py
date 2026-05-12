@@ -1,8 +1,8 @@
 import uuid
-from typing import Optional, Dict
-from typing import Set
+from datetime import datetime
+from typing import Dict, Optional, Set
+
 from fastapi import Form
-from typing_extensions import Annotated, Self
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -12,6 +12,17 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from typing_extensions import Annotated, Self
+
+
+# Resumen de la suscripción activa del usuario, expuesto en la sesión.
+class SubscriptionSummary(BaseModel):
+    id: uuid.UUID
+    is_owner: bool = False
+    days_to_cutoff: Optional[int] = None
+    permissions: Set[str] = Field(default_factory=set)
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Esquemas de usuario en la sesión
@@ -21,11 +32,17 @@ class UserBase(BaseModel):
     last_name: str
     email: EmailStr
     permissions: Set[str] = Field(default_factory=set)
+    subscription: Optional[SubscriptionSummary] = None
 
     model_config = ConfigDict(from_attributes=True)
 
     def access_control(self, access: str) -> bool:
         return access in self.permissions
+
+    def subscription_access_control(self, access: str) -> bool:
+        if self.subscription is None:
+            return False
+        return access in self.subscription.permissions
 
 
 # Auxiliar para validar la contraseña
@@ -137,3 +154,58 @@ class UserResetPassword(BaseModel):
             "password": password,
             "confirm_password": confirm_password,
         }
+
+
+class AdminUserCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    last_name: str = Field(min_length=1, max_length=50)
+    email: EmailStr
+    password: SecretStr = Field(min_length=8, max_length=128)
+    is_active: bool = True
+    role_ids: Annotated[list[uuid.UUID], Field(default_factory=list)]
+
+    @field_validator("password")
+    def password_validator(cls, value: SecretStr) -> SecretStr:
+        return validate_password(value)
+
+
+class AdminUserUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    last_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+
+
+class AdminUserPasswordUpdate(BaseModel):
+    password: SecretStr = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    def password_validator(cls, value: SecretStr) -> SecretStr:
+        return validate_password(value)
+
+
+class AdminUserRolesUpdate(BaseModel):
+    role_ids: list[uuid.UUID]
+
+
+class AdminUserRoleRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: Optional[str] = None
+    permissions: list[str] = Field(default_factory=list)
+
+
+class AdminUserRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    last_name: str
+    email: EmailStr
+    is_active: bool
+    locked_until: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    roles: Annotated[list[AdminUserRoleRead], Field(default_factory=list)]
+    has_subscription: bool = False
+    subscription_id: Optional[uuid.UUID] = None
+
+    model_config = ConfigDict(from_attributes=True)
